@@ -1,41 +1,61 @@
-import cv2
-import pandas as pd
-# import seaborn as sns
 import os
+
+import cv2
+from cv2 import imread
 import keras
 from keras import utils
-import tensorflow
-import numpy as np
-from cv2 import imread
-from keras.layers import Dense, Dropout, Flatten, Input
-from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import BatchNormalization
-from tensorflow.keras.optimizers import Adam
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Dense, Dropout, Flatten, Input
 from keras.models import Sequential
-11
-#check if the path is corrrect
-DATASET = "./Dataset/GTSRB/Final_Training/Images/"
+import numpy as np
+from tensorflow.keras.optimizers import Adam
+
+DATASET = 'ChineseTrafficSigns/tsrd-train'
 
 
 def resize_cv(img):
-    return cv2.resize(img, (64, 64), interpolation = cv2.INTER_AREA)
+    return cv2.resize(img, (64, 64), interpolation=cv2.INTER_AREA)
 
 
 list_images = []
 output = []
-for dir in os.listdir(DATASET):
-    if dir == '.DS_Store':
-        continue
 
-    inner_dir = os.path.join(DATASET, dir)
-    csv_file = pd.read_csv(os.path.join(inner_dir, "GT-" + dir + '.csv'), sep=';')
-    for row in csv_file.iterrows():
-        img_path = os.path.join(inner_dir, row[1].Filename)
-        img = imread(img_path)
-        img = img[row[1]['Roi.X1']:row[1]['Roi.X2'], row[1]['Roi.Y1']:row[1]['Roi.Y2'], :]
-        img = resize_cv(img)
-        list_images.append(img)
-        output.append(row[1].ClassId)
+csv_file_name = 'ChineseTrafficSigns/index.csv'
+
+# for row in csv_file.itertuples():
+#     name = row[1].Filename
+#     img_path = os.path.join(DATASET, name)
+#     img = imread(img_path)
+#     img = img[row[1]['Roi.X1']:row[1]['Roi.X2'], row[1]['Roi.Y1']:row[1]['Roi.Y2'], :]
+#     img = resize_cv(img)
+#     list_images.append(img)
+#     output.append(row[1].ClassId)
+
+dataset = 'ChineseTrafficSigns/tsrd-train'
+counter = 0
+with open('ChineseTrafficSigns/index.csv', mode='r') as csv_file:
+    file_len = 4170
+    head = next(csv_file)
+    for row in csv_file:
+        counter += 1
+        try:
+            row = row.split(';')
+            file_name = row[0]
+            print(f"{str(counter)}/{str(file_len)}", end="\r")
+            img = imread(os.path.join(dataset, str(file_name)))
+            roix1 = int(row[3])
+            roiy1 = int(row[4])
+            roix2 = int(row[5])
+            roiy2 = int(row[6])
+            class_id = row[7]
+            img = img[roix1:roix2, roiy1:roiy2, :]
+            img = resize_cv(img)
+            list_images.append(img)
+            output.append(row[7])
+        except TypeError as err:
+            print(err)
+            continue
 
 input_array = np.stack(list_images)
 train_y = keras.utils.np_utils.to_categorical(output)
@@ -44,10 +64,10 @@ np.random.shuffle(randomize)
 x = input_array[randomize]
 y = train_y[randomize]
 
-split_size = int(x.shape[0]*0.6)
+split_size = int(x.shape[0] * 0.6)
 train_x, val_x = x[:split_size], x[split_size:]
 train1_y, val_y = y[:split_size], y[split_size:]
-split_size = int(val_x.shape[0]*0.5)
+split_size = int(val_x.shape[0] * 0.5)
 val_x, test_x = val_x[:split_size], val_x[split_size:]
 val_y, test_y = val_y[:split_size], val_y[split_size:]
 
@@ -94,12 +114,12 @@ model = Sequential([
     Dense(units=output_num_units, input_dim=hidden_num_units, activation='softmax'),
 ])
 
-model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=1e-4), metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=1e-4), metrics=['accuracy'])
 trained_model_conv = model.fit(train_x.reshape(-1, 64, 64, 3), train1_y, epochs=epochs, batch_size=batch_size,
                                validation_data=(val_x, val_y))
 
-model.save("./")
+model.save("china_model.h5")
 model.evaluate(test_x, test_y)
 
-
-
+pred = model.predict_classes(test_x)
+print(pred)
