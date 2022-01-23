@@ -15,29 +15,36 @@ def resize_cv(img):
     return cv2.resize(img, (64, 64), interpolation=cv2.INTER_AREA)
 
 
-dataset = 'ChineseTrafficSigns/tsrd-train'
+main_folder = 'ChineseTrafficSigns'
+dataset = os.path.join(main_folder, 'tsrd-test')
 signs = {}
 # img_path = "GTSRB_Final_Test_Images/GTSRB/Final_Test/Images/" + image_name
 # csv_file = pd.read_csv('ChineseTrafficSigns/index.csv', sep=';')
-with open('ChineseTrafficSigns/index.csv', mode='r') as csv_file:
+with open(os.path.join(main_folder, 'test_index.csv'), mode='r') as csv_file:
+    counter = 0
+    file_len = 1994
     head = next(csv_file)
     for row in csv_file:
+        counter += 1
         try:
             row = row.split(';')
-            print(row[0])
+            file_name = row[0]
+            print(f"{str(counter)}/{str(file_len)}", end="\r")
             img = imread(os.path.join(dataset, str(row[0])))
             class_id = row[7]
             roix1 = int(row[3])
-            roix2 = int(row[5])
             roiy1 = int(row[4])
+            roix2 = int(row[5])
             roiy2 = int(row[6])
             img = img[roix1:roix2, roiy1:roiy2, :]
-        except TypeError:
+        except TypeError as err:
+            print(err)
+            print(file_name)
             continue
         img = resize_cv(img)
         stack_img = np.stack([img])
         pred = model.predict([stack_img, ])
-        predicted_class_id = np.argmax(pred[0], axis=0)
+        predicted_class_id = np.argmax(pred[0])
         try:
             result_table = signs[str(class_id)]
         except KeyError:
